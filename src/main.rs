@@ -2,6 +2,7 @@ use aiven_rs::service::types_elasticsearch::Index;
 use aiven_rs::AivenClient;
 use chrono::{NaiveDate, Utc};
 use dotenv::dotenv;
+use log::{error, warn};
 use reqwest::{Response, Url};
 use serde::{Deserialize, Serialize};
 use serde_yaml;
@@ -10,7 +11,6 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::process::exit;
-use log::{error, warn};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct Report {
@@ -177,13 +177,15 @@ async fn cleanup_service(
                         "Deleting index {} with size {} bytes",
                         index_name, index.size
                     );
-                    let del_res = es_api.delete_index(project, name, index_name.as_str()).await;
+                    let del_res = es_api
+                        .delete_index(project, name, index_name.as_str())
+                        .await;
                     match del_res {
-                        Ok(_) => {},
+                        Ok(_) => {}
                         Err(err) => {
                             warn!("Aiven error: {}", err);
-                            num_failures+=1;
-                        },
+                            num_failures += 1;
+                        }
                     }
                 }
                 index_already_deleted.push(index_name);
@@ -233,8 +235,7 @@ async fn send_notification(
         };
         short_descriptions.push(format!(
             "{} - {}",
-            service_result.total_human_readable_msg,
-            status
+            service_result.total_human_readable_msg, status
         ));
 
         for deleted_index in service_result.deletes {
@@ -285,8 +286,7 @@ async fn send_notification(
     );
     let title = format!("{} - Opensearch index cleanup", aiven_project);
     let color = if has_failures { "#E01E5A" } else { "#2EB67D" };
-    let title_link_var =
-        env::var("NOTIFICATION_TITLE_LINK").unwrap_or_else(|_| "".to_string());
+    let title_link_var = env::var("NOTIFICATION_TITLE_LINK").unwrap_or_else(|_| "".to_string());
     let title_link = match !title_link_var.is_empty() {
         true => Some(title_link_var),
         false => None,
@@ -315,9 +315,9 @@ async fn send_notification(
 async fn cleanup() -> Result<bool, Box<dyn Error>> {
     let rules_file = env::var("RULES_FILE").unwrap_or_else(|_| "".to_string());
     let cleanup_dry_run: bool = env::var("CLEANUP_DRY_RUN")
-            .unwrap_or("false".to_string())
-            .parse()
-            .unwrap();
+        .unwrap_or("false".to_string())
+        .parse()
+        .unwrap();
     let aiven_api_token = env::var("AIVEN_API_TOKEN").unwrap_or_else(|_| "".to_string());
     let aiven_project = env::var("AIVEN_PROJECT").unwrap_or_else(|_| "".to_string());
     let mut file = match File::open(rules_file) {
@@ -325,7 +325,7 @@ async fn cleanup() -> Result<bool, Box<dyn Error>> {
         Err(err) => {
             println!("Error opening file: {}", err);
             return Err(err.into());
-        },
+        }
     };
 
     let mut contents = String::new();
@@ -369,16 +369,19 @@ async fn cleanup() -> Result<bool, Box<dyn Error>> {
         match res {
             Ok(res) => {
                 if !res.status().is_success() {
-                    warn!("Notification response is not successful: {}", res.status().as_str());
+                    warn!(
+                        "Notification response is not successful: {}",
+                        res.status().as_str()
+                    );
                     let t = res.text().await.unwrap();
                     warn!("res: {}", t);
-                    return Ok(false)
+                    return Ok(false);
                 }
-            },
+            }
             Err(err) => {
                 error!("Notification error: {}", err);
-                return Err(err.into())
-            },
+                return Err(err.into());
+            }
         }
     }
     return Ok(true);
