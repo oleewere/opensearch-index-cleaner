@@ -57,14 +57,15 @@ struct ServiceResults {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct NotificationData {
-    pub attachments: Attachments,
+    pub attachments: Vec<Attachment>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-struct Attachments {
+struct Attachment {
     pub color: String,
     pub text: String,
     pub title: String,
+    pub title_link: Option<String>,
 }
 
 fn sizeof_fmt(mut num: u64) -> String {
@@ -176,14 +177,14 @@ async fn cleanup_service(
                         "Deleting index {} with size {} bytes",
                         index_name, index.size
                     );
-                    /*let del_res = es_api.delete_index(project, name, index_name.as_str()).await;
+                    let del_res = es_api.delete_index(project, name, index_name.as_str()).await;
                     match del_res {
                         Ok(_) => {},
                         Err(err) => {
                             warn!("Aiven error: {}", err);
                             num_failures+=1;
                         },
-                    }*/
+                    }
                 }
                 index_already_deleted.push(index_name);
                 total_data_deleted += index.size;
@@ -232,7 +233,7 @@ async fn send_notification(
         };
         short_descriptions.push(format!(
             "{} - {}",
-            service_result.deletes.iter().count(),
+            service_result.total_human_readable_msg,
             status
         ));
 
@@ -283,14 +284,21 @@ async fn send_notification(
         details_text
     );
     let title = format!("{} - Opensearch index cleanup", aiven_project);
-    let color = if has_failures { "#2EB67D" } else { "#E01E5A" };
-    let attachments = Attachments {
+    let color = if has_failures { "#E01E5A" } else { "#2EB67D" };
+    let title_link_var =
+        env::var("NOTIFICATION_TITLE_LINK").unwrap_or_else(|_| "".to_string());
+    let title_link = match !title_link_var.is_empty() {
+        true => Some(title_link_var),
+        false => None,
+    };
+    let attachment = Attachment {
         title: title,
+        title_link: title_link,
         text: output_text,
         color: color.to_string(),
     };
     let notification_data = NotificationData {
-        attachments: attachments,
+        attachments: vec![attachment],
     };
     let req_str = serde_json::to_string(&notification_data).unwrap();
     let client = reqwest::Client::new();
@@ -354,7 +362,7 @@ async fn cleanup() -> Result<bool, Box<dyn Error>> {
         ));
     }
     let opensearch_cleanup_webhook_url =
-        env::var("OPENSEARCH_CLEANUP_WEBHOOK_URL").unwrap_or_else(|_| "".to_string());
+        env::var("NOTIFICATION_WEBHOOK_URL").unwrap_or_else(|_| "".to_string());
     if !cleanup_dry_run && !opensearch_cleanup_webhook_url.is_empty() {
         let res =
             send_notification(opensearch_cleanup_webhook_url, all_results, aiven_project).await;
@@ -362,6 +370,8 @@ async fn cleanup() -> Result<bool, Box<dyn Error>> {
             Ok(res) => {
                 if !res.status().is_success() {
                     warn!("Notification response is not successful: {}", res.status().as_str());
+                    let t = res.text().await.unwrap();
+                    warn!("res: {}", t);
                     return Ok(false)
                 }
             },
