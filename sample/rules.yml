@@ -1,0 +1,10 @@
+- service: admin-coms-ek
+  rules:
+  - index_pattern: "*-myindex-1-*"
+    age_threshold: 2
+  - index_pattern: "myindex-2-*"
+    age_threshold: 3
+    date_pattern: "%Y-%m-%d"
+  summary_reports:
+    - pattern: "*myindex-*"
+      name: My indices
