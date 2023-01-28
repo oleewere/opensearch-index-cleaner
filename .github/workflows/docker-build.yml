@@ -1,0 +1,19 @@
+name: Build docker
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Build image
+      env:
+        DOCKER_REPO: oleewere/opensearch-index-cleanup
+        IMAGE_TAG: latest
+      run: |
+        docker build -t $DOCKER_REPO:$IMAGE_TAG .
