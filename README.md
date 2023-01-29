@@ -1,6 +1,6 @@
 # Opensearch Index Cleaner
 
-![build workflow](https://github.com/oleewere/opensearch-index-cleaner/actions/workflows/docker-build.yml/badge.svg)
+![build workflow](https://github.com/opsplane-services/opensearch-index-cleaner/actions/workflows/docker-build.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Tool for cleaning up old (aiven) opensearch indices.
